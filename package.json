@@ -1,0 +1,37 @@
+{
+  "name": "gstinapi",
+  "version": "1.0.0",
+  "description": "GSTIN verification for Node.js — look up any Indian GST number and get the legal name, status, taxpayer type and registered address.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "type": "commonjs",
+  "files": ["index.js", "index.d.ts", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "gstin",
+    "gst",
+    "gst-verification",
+    "gstin-verification",
+    "gst-search",
+    "gst-api",
+    "gstin-api",
+    "india",
+    "tax",
+    "compliance",
+    "einvoice"
+  ],
+  "homepage": "https://www.gstinapi.in",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CsoftTarun/gstinapi-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CsoftTarun/gstinapi-node/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
