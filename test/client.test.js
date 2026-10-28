@@ -130,3 +130,46 @@ test('lookupMany settles every entry independently', async () => {
     assert.equal(results[2].error.code, 'INVALID_FORMAT');
   } finally { restore(); }
 });
+
+test('lookup without options calls the plain endpoint', async () => {
+  const { calls, restore } = mockFetch([{ status: 200, body: { success: true } }]);
+  try {
+    await new GstinApi({ apiKey: 'gak_x' }).lookup(VALID);
+    assert.equal(calls[0].url, `https://www.gstinapi.in/v1/gstin/${VALID}`);
+  } finally { restore(); }
+});
+
+test('lookup passes include=profile through to the API', async () => {
+  const { calls, restore } = mockFetch([{ status: 200, body: { success: true, profile_complete: true } }]);
+  try {
+    const result = await new GstinApi({ apiKey: 'gak_x' }).lookup(VALID, { include: 'profile' });
+    assert.equal(calls[0].url, `https://www.gstinapi.in/v1/gstin/${VALID}?include=profile`);
+    assert.equal(result.profile_complete, true);
+  } finally { restore(); }
+});
+
+test('lookup rejects an unknown include value without touching the network', async () => {
+  const { calls, restore } = mockFetch([{ status: 200 }]);
+  try {
+    const client = new GstinApi({ apiKey: 'gak_x' });
+    await assert.rejects(() => client.lookup(VALID, { include: 'profiel' }), TypeError);
+    assert.equal(calls.length, 0, 'a typo must not spend a credit on a plain lookup');
+  } finally { restore(); }
+});
+
+test('lookupMany forwards include to every lookup', async () => {
+  const { calls, restore } = mockFetch([{ status: 200, body: { success: true } }]);
+  try {
+    const results = await new GstinApi({ apiKey: 'gak_x' }).lookupMany([VALID, VALID], { include: 'profile' });
+    assert.equal(results.length, 2);
+    assert.ok(calls.every(c => c.url.endsWith('?include=profile')));
+  } finally { restore(); }
+});
+
+test('lookupMany rejects an unknown include once, before any request', async () => {
+  const { calls, restore } = mockFetch([{ status: 200 }]);
+  try {
+    await assert.rejects(() => new GstinApi({ apiKey: 'gak_x' }).lookupMany([VALID], { include: 'all' }), TypeError);
+    assert.equal(calls.length, 0);
+  } finally { restore(); }
+});

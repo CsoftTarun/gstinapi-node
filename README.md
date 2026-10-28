@@ -28,7 +28,7 @@ ESM works too:
 import { GstinApi } from 'gstinapi';
 ```
 
-Get an API key at [gstinapi.in/register](https://www.gstinapi.in/register) — new accounts include 10 free lookups, no card required.
+Get an API key at [gstinapi.in/register](https://www.gstinapi.in/register) — every account gets up to 100 free lookups, no card required.
 
 ## Why use this instead of calling the API directly
 
@@ -77,6 +77,30 @@ try {
 | `RATE_LIMITED` | 429 | Over 60 requests/minute. Retried automatically. |
 | `PROVIDER_UNAVAILABLE` | 502 | Upstream GST network hiccup. Retried automatically. |
 | `TIMEOUT` / `NETWORK` | — | Request never completed. |
+
+## Taxpayer profile (`include: 'profile'`)
+
+Pass `include: 'profile'` to get the taxpayer's profile in the same call, at no extra credit:
+
+```js
+const result = await client.lookup('33AAACC1206D1ZN', { include: 'profile' });
+
+result.data.business_constitution;   // constitution of business
+result.data.state_jurisdiction;      // state jurisdiction (and _code)
+result.data.centre_jurisdiction;     // centre jurisdiction (and _code)
+result.data.nature_of_business;      // array of activities at the principal place
+result.data.einvoice_status;         // 'Yes' | 'No'
+result.data.last_updated;            // date the GST network last updated the record
+result.data.additional_addresses;    // additional places of business
+result.data.address_details.city;    // district and city are filled only with the profile
+result.profile_complete;             // false = lookup succeeded, profile could not be fetched
+```
+
+The profile is best-effort: if it cannot be fetched, the lookup still succeeds, the profile fields come back `null` and `profile_complete` is `false`. It works with bulk lookups too:
+
+```js
+await client.lookupMany(gstins, { concurrency: 5, include: 'profile' });
+```
 
 ## Bulk lookups
 
@@ -138,7 +162,7 @@ new GstinApi({
 }
 ```
 
-`business_constitution`, `state_jurisdiction` and `nature_of_business` are currently always `null` — the keys are stable, but don't build logic on their values.
+`business_constitution`, `state_jurisdiction` and `nature_of_business` are usually `null` on a plain lookup. Pass `include: 'profile'` (see above) to have them filled.
 
 ## Keep your key on the server
 

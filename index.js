@@ -1,7 +1,7 @@
 'use strict';
 
 const BASE_URL = 'https://www.gstinapi.in';
-const USER_AGENT = 'gstinapi-node/1.0.0 (+https://www.gstinapi.in)';
+const USER_AGENT = 'gstinapi-node/1.1.0 (+https://www.gstinapi.in)';
 const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const CHECKSUM_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -48,6 +48,19 @@ function isValidGstin(gstin, options = {}) {
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Values the API understands for ?include=. Checked locally because the API
+// ignores an unknown value: a typo would otherwise come back as a plain
+// lookup, charged, with the extra fields silently missing.
+const INCLUDE_VALUES = ['profile'];
+
+function includeQuery(include) {
+  if (include === undefined || include === null) return '';
+  if (!INCLUDE_VALUES.includes(include)) {
+    throw new TypeError(`include must be one of: ${INCLUDE_VALUES.map(v => `'${v}'`).join(', ')}`);
+  }
+  return `?include=${include}`;
+}
 
 class GstinApi {
   /**
@@ -112,15 +125,20 @@ class GstinApi {
   /**
    * Look up one GSTIN.
    * @param {string} gstin
-   * @returns {Promise<object>} `{ success, gstin, data, credits_remaining, response_ms }`
+   * @param {{ include?: 'profile' }} [options] `include: 'profile'` adds the
+   *   taxpayer profile (constitution, jurisdictions, nature of business,
+   *   e-invoice status, additional places of business) at no extra credit.
+   * @returns {Promise<object>} `{ success, gstin, data, credits_remaining, response_ms }`,
+   *   plus `profile_complete` when a profile was requested
    */
-  async lookup(gstin) {
+  async lookup(gstin, options = {}) {
     if (typeof gstin !== 'string' || !gstin.trim()) throw new TypeError('gstin must be a non-empty string');
+    const query = includeQuery((options || {}).include);
     const value = gstin.trim().toUpperCase();
     if (!isValidGstin(value, { checksum: this.validateChecksum })) {
       throw new GstinError(`"${value}" is not a valid GSTIN`, { status: 400, code: 'INVALID_FORMAT' });
     }
-    return this._request(`/v1/gstin/${encodeURIComponent(value)}`);
+    return this._request(`/v1/gstin/${encodeURIComponent(value)}${query}`);
   }
 
   /** Today's usage for this key. Does not consume a credit. */
@@ -132,12 +150,14 @@ class GstinApi {
    * Look up many GSTINs with bounded concurrency, resolving to one settled
    * entry per input so a single bad number cannot sink the batch.
    * @param {string[]} gstins
-   * @param {{ concurrency?: number }} [options]
+   * @param {{ concurrency?: number, include?: 'profile' }} [options]
    * @returns {Promise<Array<{ gstin: string, ok: boolean, data?: object, error?: GstinError }>>}
    */
   async lookupMany(gstins, options = {}) {
     if (!Array.isArray(gstins)) throw new TypeError('gstins must be an array');
-    const { concurrency = 5 } = options;
+    const { concurrency = 5, include } = options || {};
+    // Fail the whole call up front on a bad include, rather than once per row.
+    includeQuery(include);
     const results = new Array(gstins.length);
     let cursor = 0;
 
@@ -146,7 +166,7 @@ class GstinApi {
         const index = cursor++;
         const gstin = gstins[index];
         try {
-          results[index] = { gstin, ok: true, data: await this.lookup(gstin) };
+          results[index] = { gstin, ok: true, data: await this.lookup(gstin, { include }) };
         } catch (error) {
           results[index] = { gstin, ok: false, error };
         }

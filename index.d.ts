@@ -4,19 +4,62 @@ export interface GstinData {
   trade_name: string | null;
   status: string | null;
   taxpayer_type: string | null;
-  /** Always null on the current provider. */
+  /** Filled when you pass `include: 'profile'`; otherwise usually null. */
   business_constitution: string | null;
   /** ISO 8601 date, e.g. "2017-07-01". */
   registration_date: string | null;
   cancellation_date: string | null;
   state_code: string | null;
-  /** Always null on the current provider. */
+  /** Filled when you pass `include: 'profile'`; otherwise usually null. */
   state_jurisdiction: string | null;
   address: string | null;
   pincode: string | null;
-  /** Always null on the current provider. */
+  /** Filled when you pass `include: 'profile'`; otherwise usually null. */
   nature_of_business: string[] | null;
   block_status: string | null;
+  /** Principal place of business split into parts. Parts the GST network holds no value for are null. */
+  address_details?: AddressDetails | null;
+
+  // Present only when the lookup was made with `include: 'profile'`.
+  // Null when the profile could not be fetched (see `profile_complete`).
+  state_jurisdiction_code?: string | null;
+  centre_jurisdiction?: string | null;
+  centre_jurisdiction_code?: string | null;
+  /** "Yes" or "No": whether the taxpayer is enabled for e-invoicing. */
+  einvoice_status?: string | null;
+  /** ISO 8601 date the GST network last updated the record. */
+  last_updated?: string | null;
+  additional_addresses?: AdditionalAddress[] | null;
+}
+
+export interface AddressDetails {
+  building_number: string | null;
+  building_name: string | null;
+  floor: string | null;
+  street: string | null;
+  locality: string | null;
+  /** Filled only with `include: 'profile'`. */
+  district: string | null;
+  /** Filled only with `include: 'profile'`. */
+  city: string | null;
+  state: string | null;
+  landmark: string | null;
+  pincode: string | null;
+}
+
+export interface AdditionalAddress {
+  address: string | null;
+  city: string | null;
+  pincode: string | null;
+  nature: string | null;
+}
+
+/** Extra data a lookup can ask for. */
+export type LookupInclude = 'profile';
+
+export interface LookupOptions {
+  /** `'profile'` adds the taxpayer profile at no extra credit. */
+  include?: LookupInclude;
 }
 
 export interface LookupResult {
@@ -25,6 +68,12 @@ export interface LookupResult {
   data: GstinData;
   credits_remaining: number;
   response_ms: number;
+  /**
+   * Present only when `include: 'profile'` was passed. `false` means the
+   * lookup succeeded but the profile could not be fetched, so the profile
+   * fields are null.
+   */
+  profile_complete?: boolean;
 }
 
 export interface UsageStats {
@@ -73,9 +122,9 @@ export interface BatchResult {
 
 export class GstinApi {
   constructor(options: GstinApiOptions);
-  lookup(gstin: string): Promise<LookupResult>;
+  lookup(gstin: string, options?: LookupOptions): Promise<LookupResult>;
   usage(): Promise<UsageStats>;
-  lookupMany(gstins: string[], options?: { concurrency?: number }): Promise<BatchResult[]>;
+  lookupMany(gstins: string[], options?: { concurrency?: number; include?: LookupInclude }): Promise<BatchResult[]>;
 }
 
 export function isValidGstin(gstin: string, options?: { checksum?: boolean }): boolean;
